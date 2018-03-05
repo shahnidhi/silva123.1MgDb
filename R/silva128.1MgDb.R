@@ -3,9 +3,9 @@
 #'
 #' This package loads a MgDb class object with
 #' sequence and taxonomic data for the SILVA
-#' SSU rRNA database release 123.1, \url{http://greengenes.secondgenome.com}
+#' SSU rRNA database release 128.1, \url{https://www.arb-silva.de}
 #'
-#' @name silva123.1MgDb-package
+#' @name silva128.1MgDb-package
 #' @author Nathan D. Olson \email{nolson@@umiacs.umd.edu}
 #' @docType package
 #' @keywords package
@@ -13,7 +13,7 @@
 #' @importClassesFrom metagenomeFeatures MgDb
 #' @import methods
 #' @examples
-#' ls('package:silva123.1MgDb')
-#' slv123.1MgDb
+#' ls('package:silva128.1MgDb')
+#' slv128.1MgDb
 NA
 ###############################################
