@@ -104,7 +104,8 @@ parse_silva <- function(taxa_file, rnacentral_file, taxamap_file){
 
 taxa_tbl <- parse_silva(taxa_file, rnacentral_file)
 
-seqs <- Biostrings::readDNAStringSet(seq_file)
+rna_seqs <- Biostrings::readRNAStringSet(seq_file)
+seqs <- Biostrings::DNAStringSet(rna_seqs)
 
 metagenomeFeatures::make_mgdb_sqlite(db_name = "silva",
                                      db_file = db_file,
