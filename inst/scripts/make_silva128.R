@@ -62,51 +62,72 @@ download_db(tree_url, tree_file, tree_md5)
 ##Directly downloading RNAcentral mapping file
 download.file(rnacentral_url, rnacentral_file)
 
-### Create SQLite DB with Taxa and Seq Data ####################################
-expand_path <- function(path){
-    split_path <- unlist(str_split(path, ";"))
-    path_df <- data_frame()
-    for (i in 1:(length(split_path) - 1)) {
-        path_frag <- paste0(paste(split_path[1:i], collapse = ";"), ";")
-        # path_list <- c(path_list, path_frag)
-        path_df <- bind_rows(path_df, data_frame(taxa = split_path[i], V1 = path_frag))
-    }
-
-    path_df
-}
-
 ### Parse silva taxonomy
 parse_silva <- function(taxa_file, rnacentral_file, taxamap_file){
     taxa <- read.delim(taxa_file, stringsAsFactors = FALSE, header = TRUE)
     taxamap <- read.delim(taxmap_file, stringsAsFactors = FALSE, header = FALSE)
-    expanded_taxa <- taxa[1:50,] %>%
-        as_tibble() %>%
-        select(primaryAccession, path) %>%
-        mutate(expanded_path = map(path, expand_path)) %>%
-        select(-path) %>%
-        unnest()
-    mergenewtaxa <- inner_join(x=expanded_taxa, y=taxamap)
-    wide_taxa_df <- mergenewtaxa %>%
-        select(primaryAccession, taxa, V3) %>%
-        spread(V3,taxa,fill = NA)
-    taxa_df <- data.frame(wide_taxa_df$primaryAccession,wide_taxa_df$domain,wide_taxa_df$phylum,wide_taxa_df$class, wide_taxa_df$order,wide_taxa_df$family, wide_taxa_df$genus)
-    taxa_df <- taxa_df[match(taxa$primaryAccession[1:50], taxa_df$wide_taxa_df.primaryAccession),]
-    taxa_df <- cbind(taxa_df, taxa$organism_name[1:50])
-    colnames(taxa_df) <- c("Keys","Kingdom","Phylum","Class","Ord","Family","Genus","Species")
+    tpath <- taxa$path
+
+    leaf <- lapply(taxamap$V1, function(n) {
+        last_node <- str_split(n, ";")
+        last_node[[1]][length(last_node[[1]]) - 1]
+    })
+
+    taxamap$leaf <- leaf
+
+    taxa_sub <- unique(data.frame(node = unlist(leaf),
+                                  level = taxamap$V3))
+
+    taxa_list <- taxa_sub$level
+    names(taxa_list) <- taxa_sub$node
+
+    hierarchy <- lapply(tpath, function(path) {
+        req <- c("domain", "phylum", "class", "order", "family", "genus")
+
+        last_node <- str_split(path, ";")
+        nodes <- last_node[[1]][1:length(last_node[[1]]) -1]
+        level <- lapply(nodes, function(node) {
+            as.character(taxa_list[[node]][1])
+        })
+
+        tlist <- nodes
+        names(tlist) <- level
+        out <- tlist[req]
+        names(out) <- req
+        out
+    })
+
+    df_hierarchy <- map_df(hierarchy, ~bind_rows(.))
+
+    taxa$domain <- df_hierarchy$domain
+    taxa$phylum <- df_hierarchy$phylum
+    taxa$class <- df_hierarchy$class
+    taxa$order <- df_hierarchy$order
+    taxa$family <- df_hierarchy$family
+    taxa$genus <- df_hierarchy$genus
+
+    taxa$path <- NULL
+    taxa$taxid <- NULL
+    colnames(taxa) <- c("Accession", "start", "stop","Species", "Kingdom", "Phylum", "Class", "Ord", "Family", "Genus" )
+    taxa$Keys <- paste0(taxa_tbl$Accession,".", taxa_tbl$start,".", taxa_tbl$stop)
+    taxa_tbl_new <- df[,c(which(colnames(df)=="Keys"),which(colnames(df)!="Keys"))]
+
     ## Add RNAcentral ID and NCBItax ID - The primaryAccession field in taxa_df differs from RNAmap identifier.
     # rnamap <- read.delim(rnacentral_file, stringsAsFactors = FALSE, header = FALSE)
     # rnamap_new <- rnamap[match(taxa$primaryAccession,rnamap$V3),]
     # taxa_df <-cbind(taxa_df,rnamap_new$V1[1:50],rnamap_new$V4[1:50])
     # colnames(taxa_df) <- c("Keys","Kingdom","Phylum","Class","Ord","Family","Genus","Species","RNAcentralID","NCBItaxID")
+
     ## Return as a data.frame
-    data.frame(taxa_df)
+    data.frame(taxa_tbl_new)
 }
 
 taxa_tbl <- parse_silva(taxa_file, rnacentral_file)
 
 rna_seqs <- Biostrings::readRNAStringSet(seq_file)
 seqs <- Biostrings::DNAStringSet(rna_seqs)
-
+seq_names_final <- vapply(strsplit(names(seqs)," ",fixed=TRUE), `[`, 1, FUN.VALUE=character(1))
+names(seqs) <- seq_names_final
 metagenomeFeatures::make_mgdb_sqlite(db_name = "silva",
                                      db_file = db_file,
                                      taxa_tbl = taxa_tbl,
