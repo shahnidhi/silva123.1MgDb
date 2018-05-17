@@ -122,7 +122,6 @@ names(seqs) <- seq_names_final
 add_rnacentral_mapping <- function(rnacentral_md5_file, rnacentral_file, taxa_tbl){
     md5mapping <- fread(rnacentral_md5_file, sep = "\t", header = FALSE )
     rnacentral_tbl <- fread(rnacentral_file, sep = '\t', header = FALSE)
-    names(md5mapping) <- md5mapping$V1
     md5mappingsubset <- subset(md5mapping,V1 %in% rnacentral_tbl$V1 )
     merged_rna_tbl <- merge(md5mappingsubset, rnacentral_tbl, by="V1")
     seqsdigest <- sapply(as.character(seqs), digest, algo="md5",serialize=F)
